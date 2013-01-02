@@ -1,6 +1,12 @@
 #!/usr/bin/perl
+use Cwd 'abs_path';
+use File::Basename;
 use Data::Dumper;
 use strict;
+
+BEGIN {
+  my $src = dirname(__FILE__);
+}
 
 my $data = {
   ParamType => {},
