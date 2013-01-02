@@ -47,11 +47,12 @@ sub closerecord {
   }
 }
 
-sub read_file {
+sub parse_file {
   my $self = shift;
   my $fh = shift;
-
-  while(<$fh>) {
+  $self->reset();
+  open(IN, "<$fh") or die "$fh $@ $!";
+  while(<IN>) {
     chomp;
     if (/^\$ParamType\s+(\d+)\s+(\d+)\s+(\S+)/) {
       $self->{data}->{ParamType}->{$1} = $3;
@@ -59,23 +60,23 @@ sub read_file {
       next;
     }
     if (/^\$((?:Beam|Color|Focus)Palette)\s+(\d+)/) {
-      closerecord();
+      $self->closerecord();
       $self->{record} = { index => $2, type => $1, title=>$2, parameters => {}, channels => {} };
       next;
     }
     if (/^\$Group\s+(\d+)/) {
-      closerecord();
+      $self->closerecord();
       $self->{record} = { index => $1, type => "Group", title=>$1, channels => {} };
       next;
     }
     if (/^\$Patch\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/) {
-      closerecord();
+      $self->closerecord();
       $self->{record} = { index => $1, type => "Patch", title=>$1, personalityidx => $2, dmx => $3, mode => $4, part => $5, personality => $2 };
       next;
     }
     if (/^\$((?!\$)\S+)/) {
       print $1,"\n";
-      closerecord();
+      $self->closerecord();
       next;
     }
     if ($self->{record}) {
@@ -112,6 +113,7 @@ sub read_file {
       next;
     }
   }
+  close(IN);
   $self->{data};
 }
 
