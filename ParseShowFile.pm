@@ -133,14 +133,27 @@ sub consolidate_lines {
   for my $line (sort { $lines{$a}->[0] <=> $lines{$b}->[0] } keys %lines) {
     my @chantoks = @{$lines{$line}};
     my @chanlist;
+    my @chantoks2;
     while (@chantoks) {
       my $firstkey = shift(@chantoks);
       my $lastkey = $firstkey;
       for(my $i = $firstkey; $chantoks[0] == $i+1; $i++) { $lastkey = $i+1; shift(@chantoks); }
       if ($firstkey == $lastkey) {
-        push @chanlist, $firstkey;
+        push @chantoks2, $firstkey;
       } else {
         push @chanlist, $firstkey."&gt;".$lastkey;
+      }
+    }
+    @chantoks = @chantoks2;
+    # even/odd
+    while (@chantoks) {
+      my $firstkey = shift(@chantoks);
+      my $lastkey = $firstkey;
+      for(my $i = $firstkey; $chantoks[0] == $i+2; $i+=2) { $lastkey = $i+2; shift(@chantoks); }
+      if ($firstkey == $lastkey) {
+        push @chanlist, $firstkey;
+      } else {
+        push @chanlist, (($firstkey%2)?"odd(":"even(").$firstkey."&gt;".$lastkey.")";
       }
     }
     my $list = join(",", @chanlist);
