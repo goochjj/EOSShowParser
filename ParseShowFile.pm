@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 
+use CGI;
 use strict;
 
 package ParseShowFile;
@@ -119,7 +120,12 @@ sub data { my $self = shift; $self->{data}; }
 
 sub consolidate_lines {
   my $self = shift @_;
-  my $p = ref($self)?shift @_:$self;
+  my $p;
+  if (ref($self) eq "ParseShowFile") {
+    $p = shift @_;
+  } else {
+    $p = $self;
+  }
   my %chans = %{$p};
 
   my %lines;
@@ -166,5 +172,96 @@ sub consolidate_lines {
   }
   \@chansmerged;
 } 
+
+sub generate_page {
+  my $self = shift;
+  my $q = shift || new CGI;
+
+  $q->print("<html>\n");
+  $q->print("<head><title>Show File</title><style type='text/css'>th { text-align: center; } td { text-align: right; } table,tr,th,td { border-collapse: collapse; border: 1px solid black; }</style></head>\n");
+  $q->print("<body>\n");
+  my $anchors = "";
+  $anchors .= "&nbsp;<a href='\#beampalette'>Beam Palettes</a>";
+  $anchors .= "&nbsp;<a href='\#colorpalette'>Color Palettes</a>";
+  $anchors .= "&nbsp;<a href='\#focuspalette'>Focus Palettes</a>";
+  $anchors .= "&nbsp;<a href='\#patch'>Patch List</a>";
+  $anchors .= "<br/><br/>\n";
+  $q->print("<a name='colorpalette'/>$anchors");
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{ColorPalette}}) {
+    my $rec = $self->{data}->{ColorPalette}->{$key};
+    $q->print("<h2>Color Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
+    $q->print("<table>\n");
+    $q->print("  <tr><th>&nbsp;</th><th>Channel(s)</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    my %chans;
+    foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
+      my $rgb = join(",", map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue') ));
+      my $colval = "&nbsp;";
+      my $colstyle = "";
+      my $sel = $rec->{channels}->{$chan}->{$self->{data}->{ParamNameToType}->{Color_Select}};
+      if ($rgb) { $colstyle = "background-color: rgb($rgb);"; }
+      if ($sel) { $colval = unpack("H*", pack("C2", $sel/256, $sel%256)); }
+      my $line = "";
+      $line .= "<td style='width:30px; $colstyle'>$colval</td>";
+      $line .= "<td>\@CHAN\@</td>";
+      $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
+      $chans{$chan} = $line;
+    }
+    my $output = consolidate_lines(\%chans);
+    foreach my $line (@$output) {
+      $q->print("  <tr>$line</tr>\n");
+    }
+    $q->print("</table>\n");
+  }
+  $q->print("<a name='beampalette'/>$anchors");
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{BeamPalette}}) {
+    my $rec = $self->{data}->{BeamPalette}->{$key};
+    $q->print("<h2>Beam Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
+    $q->print("<table>\n");
+    $q->print("  <tr><th>Channel</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    my %chans;
+    foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
+      my $line = "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
+      $chans{$chan} = $line;
+    }
+    my $output = consolidate_lines(\%chans);
+    foreach my $line (@$output) {
+      $q->print("  <tr>$line</tr>\n");
+    }
+    $q->print("</table>\n");
+  }
+  $q->print("<a name='focuspalette'/>$anchors");
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{FocusPalette}}) {
+    my $rec = $self->{data}->{FocusPalette}->{$key};
+    $q->print("<h2>Focus Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
+    $q->print("<table>\n");
+    $q->print("  <tr><th>Channel</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    my %chans;
+    foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
+      my $line = "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
+      $chans{$chan} = $line;
+    }
+    my $output = consolidate_lines(\%chans);
+    foreach my $line (@$output) {
+      $q->print("  <tr>$line</tr>\n");
+    }
+    $q->print("</table>\n");
+  }
+  $q->print("<a name='patch'/>$anchors");
+  $q->print("<h2>Patch List</h2><br/>");
+  $q->print("<table>\n");
+  $q->print("  <tr><th>Channel</th><th>Type</th><th>Address</th></tr>\n");
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Patch}}) {
+    my $rec = $self->{data}->{Patch}->{$key};
+    $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{index}, $rec->{personality}, $rec->{dmx}))."</tr>\n");
+  }
+  $q->print( "</table>\n");
+  $q->print( "</body></html>\n");
+}
 
 1;
