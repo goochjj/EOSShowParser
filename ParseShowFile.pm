@@ -173,13 +173,25 @@ sub consolidate_lines {
   \@chansmerged;
 } 
 
-sub generate_page {
+sub get_styles {
+  "<style type='text/css'>th { text-align: center; } td { text-align: right; } table,tr,th,td { border-collapse: collapse; border: 1px solid black; }</style>\n";
+}
+
+sub page_start {
   my $self = shift;
   my $q = shift || new CGI;
 
   $q->print("<html>\n");
-  $q->print("<head><title>Show File</title><style type='text/css'>th { text-align: center; } td { text-align: right; } table,tr,th,td { border-collapse: collapse; border: 1px solid black; }</style></head>\n");
+  $q->print("<head><title>Show File</title>");
+  $q->print($self->get_styles());
+  $q->print("</head>\n");
   $q->print("<body>\n");
+}
+
+sub generate_page {
+  my $self = shift;
+  my $q = shift || new CGI;
+
   my $anchors = "";
   $anchors .= "&nbsp;<a href='\#beampalette'>Beam Palettes</a>";
   $anchors .= "&nbsp;<a href='\#colorpalette'>Color Palettes</a>";
@@ -261,7 +273,12 @@ sub generate_page {
     $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{index}, $rec->{personality}, $rec->{dmx}))."</tr>\n");
   }
   $q->print( "</table>\n");
-  $q->print( "</body></html>\n");
 }
 
+sub page_end {
+  my $self = shift;
+  my $q = shift || new CGI;
+
+  $q->print( "</body></html>\n");
+}
 1;

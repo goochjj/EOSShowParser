@@ -23,5 +23,7 @@ close(DMP);
 
 my $fh2 = FileHandle->new;
 $fh2->open(">dump.html") or die "dump.html $@ $!";
+$p->page_start($fh2);
 $p->generate_page($fh2);
+$p->page_end($fh2);
 $fh2->close();
