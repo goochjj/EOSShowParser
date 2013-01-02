@@ -1,5 +1,4 @@
 #!/usr/bin/perl
-use PrintHash;
 use Data::Dumper;
 use strict;
 
