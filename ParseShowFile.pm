@@ -20,6 +20,7 @@ sub reset {
   $self->{data} = {
     ParamType => {},
     ParamNameToType => {},
+    Personality => {},
     ColorPalette => {},
     FocusPalette => {},
     BeamPalette => {},
@@ -69,6 +70,11 @@ sub parse_file {
       $self->{record} = { index => $1, type => "Group", title=>$1, channels => {} };
       next;
     }
+    if (/^\$Personality\s+(\d+)/) {
+      $self->closerecord();
+      $self->{record} = { index => $1, type => "Personality", model=>"", manufacturer=>"", dcid=>"", params => {} };
+      next;
+    }
     if (/^\$Patch\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/) {
       $self->closerecord();
       $self->{record} = { index => $1, type => "Patch", title=>$1, personalityidx => $2, dmx => $3, mode => $4, part => $5, personality => $2 };
@@ -88,6 +94,16 @@ sub parse_file {
     if ($self->{record} && ($self->{record}->{type} =~ /^Patch$/)) {
       if (/^\s+\$\$Pers\s+(.+)$/) {
         $self->{record}->{personality} = $1;
+      }
+    }
+    if ($self->{record} && ($self->{record}->{type} =~ /^Personality$/)) {
+      if (/^\s+\$\$Manuf\s+(.+)$/) { $self->{record}->{manufacturer} = $1; next; }
+      if (/^\s+\$\$Model\s+(.+)$/) { $self->{record}->{model} = $1;        next; }
+      if (/^\s+\$\$Dcid\s+(.+)$/ ) { $self->{record}->{dcid} = $1;         next; }
+      if (/^\s+\$\$Model\s+(.+)$/) { $self->{record}->{model} = $1;        next; }
+      if (/^\s+\$\$PersChan\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/) {
+        $self->{record}->{params}->{$1} = { paramtype => $1, size => $2, offset1 => $3, offset2 => $4, home => $5 };
+        next;
       }
     }
     if ($self->{record} && ($self->{record}->{type} =~ /^(?:Beam|Color|Focus)Palette$/)) {
@@ -203,21 +219,47 @@ sub generate_page {
     my $rec = $self->{data}->{ColorPalette}->{$key};
     $q->print("<h2>Color Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>&nbsp;</th><th>Channel(s)</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    $q->print("  <tr><th>&nbsp;</th><th>Channel(s)</th><th>Fixture</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
     foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my $patch = $self->{data}->{Patch}->{$chan};
+      my $persidx = $patch->{personalityidx};
+      my $pers = $self->{data}->{Personality}->{$persidx};
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
       my $rgb = join(",", map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue') ));
       my $colval = "&nbsp;";
       my $colstyle = "";
       my $sel = $rec->{channels}->{$chan}->{$self->{data}->{ParamNameToType}->{Color_Select}};
       if ($rgb) { $colstyle = "background-color: rgb($rgb);"; }
-      if ($sel) { $colval = unpack("H*", pack("C2", $sel/256, $sel%256)); }
+      if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); }
       my $line = "";
       $line .= "<td style='width:30px; $colstyle'>$colval</td>";
       $line .= "<td>\@CHAN\@</td>";
+      $line .= "<td>".$pers->{model}."</td>";
       $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
-      $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
+      foreach my $paramidx (@{$rec->{parameters}}) {
+        my $val = $rec->{channels}->{$chan}->{$paramidx};
+        my $perschan = $pers->{params}->{$paramidx};
+        my $size = $perschan->{size};
+        my $s="";
+        if ($size==1) {
+	  $val = uc(unpack("H*", pack("C*", $val%256)));
+	  if ($self->{data}->{ParamNameToType}->{Red} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #".$val."0000;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Green} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #00".$val."00;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Blue} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #0000".$val.";'";
+          }
+          $val = "0x".$val;
+        } elsif ($size==2) {
+	  $val = uc(unpack("H*", pack("C*", $val/256, $val%256)));
+          $val = "0x".$val;
+	} else { 
+	  $val = "";
+        }
+        $line .= "<td".$s.">".$val."</td>";
+      }
       $chans{$chan} = $line;
     }
     my $output = consolidate_lines(\%chans);
@@ -231,11 +273,16 @@ sub generate_page {
     my $rec = $self->{data}->{BeamPalette}->{$key};
     $q->print("<h2>Beam Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>Channel</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    $q->print("  <tr><th>Channel</th><th>Fixtures</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
     foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my $patch = $self->{data}->{Patch}->{$chan};
+      my $persidx = $patch->{personalityidx};
+      my $pers = $self->{data}->{Personality}->{$persidx};
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
-      my $line = "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      my $line = "";
+      $line .= "<td>".$pers->{model}."</td>";
+      $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
       $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
       $chans{$chan} = $line;
     }
@@ -250,11 +297,16 @@ sub generate_page {
     my $rec = $self->{data}->{FocusPalette}->{$key};
     $q->print("<h2>Focus Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>Channel</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    $q->print("  <tr><th>Channel</th><th>Fixtures</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
     foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my $patch = $self->{data}->{Patch}->{$chan};
+      my $persidx = $patch->{personalityidx};
+      my $pers = $self->{data}->{Personality}->{$persidx};
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
-      my $line = "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      my $line = "";
+      $line .= "<td>".$pers->{model}."</td>";
+      $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
       $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
       $chans{$chan} = $line;
     }
