@@ -51,8 +51,7 @@ sub parse_file {
   my $self = shift;
   my $fh = shift;
   $self->reset();
-  open(IN, "<$fh") or die "$fh $@ $!";
-  while(<IN>) {
+  while(<$fh>) {
     chomp;
     if (/^\$ParamType\s+(\d+)\s+(\d+)\s+(\S+)/) {
       $self->{data}->{ParamType}->{$1} = $3;
@@ -113,14 +112,14 @@ sub parse_file {
       next;
     }
   }
-  close(IN);
   $self->{data};
 }
 
 sub data { my $self = shift; $self->{data}; }
 
 sub consolidate_lines {
-  my $p = shift @_;
+  my $self = shift @_;
+  my $p = ref($self)?shift @_:$self;
   my %chans = %{$p};
 
   my %lines;

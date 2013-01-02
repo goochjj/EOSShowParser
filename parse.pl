@@ -2,7 +2,7 @@
 use Cwd 'abs_path';
 use File::Basename;
 use Data::Dumper;
-use Filehandle;
+use FileHandle;
 use strict;
 
 BEGIN {
@@ -12,15 +12,14 @@ BEGIN {
 
 my $file = shift;
 my $p = new ParseShowFile();
-my $data = $p->parse_file($file);
+my $fh = FileHandle->new;
+$fh->open("<".$file) or die "$@ $!";
+my $data = $p->parse_file($fh);
+$fh->close();
 
 open(DMP, ">dump.pm") or die "dump.pm $@ $!";
 print DMP Data::Dumper->Dump([\$data]),"\n";
 close(DMP);
-
-#foreach my $key (sort { $a <=> $b } keys %{$data->{ParamType}}) {
-#  print "$key\t=>\t".$data->{ParamType}->{$key}."\n";
-#}
 
 open(HTML, ">dump.html") or die "dump.html $@ $!";
 print HTML "<html>\n";
@@ -54,7 +53,7 @@ foreach my $key (sort { $a <=> $b } keys %{$data->{ColorPalette}}) {
     $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
     $chans{$chan} = $line;
   }
-  my $output = consolidate_lines(\%chans);
+  my $output = $p->consolidate_lines(\%chans);
   foreach my $line (@$output) {
     print HTML "  <tr>$line</tr>\n";
   }
@@ -73,7 +72,7 @@ foreach my $key (sort { $a <=> $b } keys %{$data->{BeamPalette}}) {
     $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
     $chans{$chan} = $line;
   }
-  my $output = consolidate_lines(\%chans);
+  my $output = $p->consolidate_lines(\%chans);
   foreach my $line (@$output) {
     print HTML "  <tr>$line</tr>\n";
   }
@@ -92,7 +91,7 @@ foreach my $key (sort { $a <=> $b } keys %{$data->{FocusPalette}}) {
     $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
     $chans{$chan} = $line;
   }
-  my $output = consolidate_lines(\%chans);
+  my $output = $p->consolidate_lines(\%chans);
   foreach my $line (@$output) {
     print HTML "  <tr>$line</tr>\n";
   }
