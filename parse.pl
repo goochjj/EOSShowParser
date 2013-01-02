@@ -109,39 +109,3 @@ foreach my $key (sort { $a <=> $b } keys %{$data->{Patch}}) {
 print HTML "</table>\n";
 print HTML "</body></html>\n";
 close(HTML);
-
-sub consolidate_lines {
-  my $p = shift @_;
-  my %chans = %{$p};
-
-  my %lines;
-  for my $chan (sort { $a <=> $b } keys %chans) {
-    if (!defined($lines{$chans{$chan}})) {
-      $lines{$chans{$chan}} = []
-    }
-    push @{$lines{$chans{$chan}}}, $chan;
-  }
-  my @chansmerged;
-  for my $line (sort { $lines{$a}->[0] <=> $lines{$b}->[0] } keys %lines) {
-    my @chantoks = @{$lines{$line}};
-    my @chanlist;
-    while (@chantoks) {
-      my $firstkey = shift(@chantoks);
-      my $lastkey = $firstkey;
-      for(my $i = $firstkey; $chantoks[0] == $i+1; $i++) { $lastkey = $i+1; shift(@chantoks); }
-      if ($firstkey == $lastkey) {
-        push @chanlist, $firstkey;
-      } else {
-        push @chanlist, $firstkey."&gt;".$lastkey;
-      }
-    }
-    my $list = join(",", @chanlist);
-    if ($line =~ /\@CHAN\@/) {
-      $line =~ s/\@CHAN\@/$list/g;
-      push @chansmerged, $line;
-    } else {
-      push @chansmerged, "<td>$list</td>".$line;
-    }
-  }
-  \@chansmerged;
-} 
