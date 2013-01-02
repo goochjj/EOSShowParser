@@ -228,6 +228,7 @@ sub generate_page {
   $anchors .= "&nbsp;<a href='\#beampalette'>Beam Palettes</a>";
   $anchors .= "&nbsp;<a href='\#colorpalette'>Color Palettes</a>";
   $anchors .= "&nbsp;<a href='\#focuspalette'>Focus Palettes</a>";
+  $anchors .= "&nbsp;<a href='\#groups'>Groups</a>";
   $anchors .= "&nbsp;<a href='\#patch'>Patch List</a>";
   $anchors .= "<br/><br/>\n";
   $q->print("<a name='colorpalette'/>$anchors");
@@ -382,6 +383,15 @@ sub generate_page {
     }
     $q->print("</table>\n");
   }
+  $q->print("<a name='groups'/>$anchors");
+  $q->print("<h2>Groups</h2><br/>");
+  $q->print("<table>\n");
+  $q->print("  <tr><th>Group</th><th>Channels</th></tr>\n");
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Group}}) {
+    my $rec = $self->{data}->{Group}->{$key};
+    $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{title}."[".$key."]", htmlize(friendly_channels(@{$rec->{channels}}))) )."</tr>\n");
+  }
+  $q->print( "</table>\n");
   $q->print("<a name='patch'/>$anchors");
   $q->print("<h2>Patch List</h2><br/>");
   $q->print("<table>\n");
