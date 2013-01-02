@@ -23,9 +23,10 @@ print $q->title("Show Parsing");
 print $p->get_styles();
 print $q->end_head();
 print $q->start_body();
-print '<form method="post" enctype="multipart/form-data"><p>ASCII File: <input type="file" name="showfile" /></p><input type="submit" value="Go" /></form><br/>'."\n";
+print '<form method="post" enctype="multipart/form-data"><p>ASCII File: <input type="file" name="showfile" /></p><p>Use Groups: <input type="checkbox" name="usegroups" value="1" /></p><input type="submit" value="Go" /></form><br/>'."\n";
 if ($q->param("showfile")) {
   my $fh = $q->upload("showfile");
+  $p->{usegroups} = $q->param("usegroups")||0;
   my $data = $p->parse_file($fh);
   print "<br/><br/>\n";
   print $p->generate_page($q);

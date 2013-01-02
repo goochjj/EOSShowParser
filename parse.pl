@@ -22,8 +22,16 @@ print DMP Data::Dumper->Dump([\$data]),"\n";
 close(DMP);
 
 my $fh2 = FileHandle->new;
+my $fh3 = FileHandle->new;
 $fh2->open(">dump.html") or die "dump.html $@ $!";
+$fh3->open(">dump_nogrp.html") or die "dump_nogrp.html $@ $!";
 $p->page_start($fh2);
+$p->page_start($fh3);
+$p->{usegroups} = 0;
+$p->generate_page($fh3);
+$p->{usegroups} = 1;
 $p->generate_page($fh2);
 $p->page_end($fh2);
+$p->page_end($fh3);
 $fh2->close();
+$fh3->close();

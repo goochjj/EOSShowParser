@@ -16,6 +16,7 @@ sub new {
 
 sub reset {
   my $self = shift;
+  $self->{usegroups} = 0;
   $self->{record} = undef;
   $self->{data} = {
     ParamType => {},
@@ -134,6 +135,46 @@ sub parse_file {
 
 sub data { my $self = shift; $self->{data}; }
 
+sub htmlize {
+  my $self;
+  if (ref($_[0]) eq "ParseShowFile") { $self = shift; }
+  my $val = shift;
+  $val =~ s/\>/&gt;/g;
+  $val =~ s/\</&lt;/g;
+  return $val;
+}
+
+sub friendly_channels {
+  my $self;
+  if (ref($_[0]) eq "ParseShowFile") { $self = shift; }
+  my @chantoks = @_;
+  my @chanlist;
+  my @chantoks2;
+  while (@chantoks) {
+    my $firstkey = shift(@chantoks);
+    my $lastkey = $firstkey;
+    for(my $i = $firstkey; $chantoks[0] == $i+1; $i++) { $lastkey = $i+1; shift(@chantoks); }
+    if ($firstkey == $lastkey) {
+      push @chantoks2, $firstkey;
+    } else {
+      push @chanlist, $firstkey.">".$lastkey;
+    }
+  }
+  @chantoks = @chantoks2;
+  # even/odd
+  while (@chantoks) {
+    my $firstkey = shift(@chantoks);
+    my $lastkey = $firstkey;
+    for(my $i = $firstkey; $chantoks[0] == $i+2; $i+=2) { $lastkey = $i+2; shift(@chantoks); }
+    if ($firstkey == $lastkey) {
+      push @chanlist, $firstkey;
+    } else {
+      push @chanlist, (($firstkey%2)?"odd(":"even(").$firstkey.">".$lastkey.")";
+    }
+  }
+  return join(",", @chanlist);
+}
+
 sub consolidate_lines {
   my $self = shift @_;
   my $p;
@@ -153,32 +194,7 @@ sub consolidate_lines {
   }
   my @chansmerged;
   for my $line (sort { $lines{$a}->[0] <=> $lines{$b}->[0] } keys %lines) {
-    my @chantoks = @{$lines{$line}};
-    my @chanlist;
-    my @chantoks2;
-    while (@chantoks) {
-      my $firstkey = shift(@chantoks);
-      my $lastkey = $firstkey;
-      for(my $i = $firstkey; $chantoks[0] == $i+1; $i++) { $lastkey = $i+1; shift(@chantoks); }
-      if ($firstkey == $lastkey) {
-        push @chantoks2, $firstkey;
-      } else {
-        push @chanlist, $firstkey."&gt;".$lastkey;
-      }
-    }
-    @chantoks = @chantoks2;
-    # even/odd
-    while (@chantoks) {
-      my $firstkey = shift(@chantoks);
-      my $lastkey = $firstkey;
-      for(my $i = $firstkey; $chantoks[0] == $i+2; $i+=2) { $lastkey = $i+2; shift(@chantoks); }
-      if ($firstkey == $lastkey) {
-        push @chanlist, $firstkey;
-      } else {
-        push @chanlist, (($firstkey%2)?"odd(":"even(").$firstkey."&gt;".$lastkey.")";
-      }
-    }
-    my $list = join(",", @chanlist);
+    my $list = htmlize(friendly_channels(@{$lines{$line}}));
     if ($line =~ /\@CHAN\@/) {
       $line =~ s/\@CHAN\@/$list/g;
       push @chansmerged, $line;
@@ -190,7 +206,7 @@ sub consolidate_lines {
 } 
 
 sub get_styles {
-  "<style type='text/css'>th { text-align: center; } td { text-align: right; } table,tr,th,td { border-collapse: collapse; border: 1px solid black; }</style>\n";
+  "<style type='text/css'>table { width: 100%; } th { text-align: center; } td { text-align: right; } table,tr,th,td { border-collapse: collapse; border: 1px solid black; }</style>\n";
 }
 
 sub page_start {
@@ -219,7 +235,9 @@ sub generate_page {
     my $rec = $self->{data}->{ColorPalette}->{$key};
     $q->print("<h2>Color Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>&nbsp;</th><th>Channel(s)</th><th>Fixture</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    $q->print("  <tr><th>&nbsp;</th><th>Channel(s)</th><th>Fixture</th>");
+    if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
+    $q->print(join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
     foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
       my $patch = $self->{data}->{Patch}->{$chan};
@@ -236,7 +254,7 @@ sub generate_page {
       $line .= "<td style='width:30px; $colstyle'>$colval</td>";
       $line .= "<td>\@CHAN\@</td>";
       $line .= "<td>".$pers->{model}."</td>";
-      $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      if ($self->{usegroups}) { $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>"; }
       foreach my $paramidx (@{$rec->{parameters}}) {
         my $val = $rec->{channels}->{$chan}->{$paramidx};
         my $perschan = $pers->{params}->{$paramidx};
@@ -273,7 +291,9 @@ sub generate_page {
     my $rec = $self->{data}->{BeamPalette}->{$key};
     $q->print("<h2>Beam Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>Channel</th><th>Fixtures</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    $q->print("  <tr><th>Channel(s)</th><th>Fixture</th>");
+    if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
+    $q->print(join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
     foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
       my $patch = $self->{data}->{Patch}->{$chan};
@@ -282,7 +302,7 @@ sub generate_page {
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
       my $line = "";
       $line .= "<td>".$pers->{model}."</td>";
-      $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      if ($self->{usegroups}) { $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>"; }
       foreach my $paramidx (@{$rec->{parameters}}) {
         my $val = $rec->{channels}->{$chan}->{$paramidx};
         my $perschan = $pers->{params}->{$paramidx};
@@ -319,7 +339,9 @@ sub generate_page {
     my $rec = $self->{data}->{FocusPalette}->{$key};
     $q->print("<h2>Focus Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>Channel</th><th>Fixtures</th><th>Groups</th>".join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    $q->print("  <tr><th>Channel(s)</th><th>Fixture</th>");
+    if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
+    $q->print(join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
     foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
       my $patch = $self->{data}->{Patch}->{$chan};
@@ -328,7 +350,7 @@ sub generate_page {
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
       my $line = "";
       $line .= "<td>".$pers->{model}."</td>";
-      $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
+      if ($self->{usegroups}) { $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>"; }
       foreach my $paramidx (@{$rec->{parameters}}) {
         my $val = $rec->{channels}->{$chan}->{$paramidx};
         my $perschan = $pers->{params}->{$paramidx};
@@ -363,10 +385,12 @@ sub generate_page {
   $q->print("<a name='patch'/>$anchors");
   $q->print("<h2>Patch List</h2><br/>");
   $q->print("<table>\n");
-  $q->print("  <tr><th>Channel</th><th>Type</th><th>Address</th><th>Address Hex</th></tr>\n");
+  $q->print("  <tr><th>Channel</th><th>Type</th><th>Address</th><th>Address Hex</th><th>Group(s)</th></tr>\n");
   foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Patch}}) {
+    my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$key}};
+    my $grptxt = join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups);
     my $rec = $self->{data}->{Patch}->{$key};
-    $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{index}, $rec->{personality}, $rec->{dmx}, "0x".uc(unpack("H*", pack("C*", $rec->{dmx}/256, $rec->{dmx}%256)))))."</tr>\n");
+    $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{index}, $rec->{personality}, $rec->{dmx}, "0x".uc(unpack("H*", pack("C*", $rec->{dmx}/256, $rec->{dmx}%256)))), $grptxt)."</tr>\n");
   }
   $q->print( "</table>\n");
 }
