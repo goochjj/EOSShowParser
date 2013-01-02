@@ -2,108 +2,17 @@
 use Cwd 'abs_path';
 use File::Basename;
 use Data::Dumper;
+use Filehandle;
 use strict;
 
 BEGIN {
   my $src = dirname(__FILE__);
+  require "$src/ParseShowFile.pm";
 }
 
-my $data = {
-  ParamType => {},
-  ParamNameToType => {},
-  ColorPalette => {},
-  FocusPalette => {},
-  BeamPalette => {},
-  Patch => {},
-  Group => {},
-  ChannelToGroups => {}
-};
-my $record;
-
-sub closerecord {
-  if ($record) {
-    if ($record->{type}) {
-      if ($record->{type} =~ /^(?:Color|Beam|Focus)Palette$/) {
-        $record->{parameters} = [ sort { $a <=> $b } keys %{$record->{parameters}} ];
-      }
-      if ($record->{type} eq "Group") {
-        $record->{channels} = [ sort { $a <=> $b } keys %{$record->{channels}} ];
-        foreach my $chan (@{$record->{channels}}) {
-          $data->{ChannelToGroups}->{$chan}->{$record->{index}} = 1; 
-        }
-      }
-      $data->{$record->{type}}->{$record->{index}} = $record;
-      $record = undef;
-    }
-  }
-}
-
-while(<>) {
-  chomp;
-  if (/^\$ParamType\s+(\d+)\s+(\d+)\s+(\S+)/) {
-    $data->{ParamType}->{$1} = $3;
-    $data->{ParamNameToType}->{$3} = $1;
-    next;
-  }
-  if (/^\$((?:Beam|Color|Focus)Palette)\s+(\d+)/) {
-    closerecord();
-    $record = { index => $2, type => $1, title=>$2, parameters => {}, channels => {} };
-#   title
-#   parameters => []
-#   channels
-#     channel =>
-#       attrib => value
-    next;
-  }
-  if (/^\$Group\s+(\d+)/) {
-    closerecord();
-    $record = { index => $1, type => "Group", title=>$1, channels => {} };
-    next;
-  }
-  if (/^\$Patch\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/) {
-    closerecord();
-    $record = { index => $1, type => "Patch", title=>$1, personalityidx => $2, dmx => $3, mode => $4, part => $5, personality => $2 };
-    next;
-  }
-  if (/^\$((?!\$)\S+)/) {
-    print $1,"\n";
-    closerecord();
-    next;
-  }
-  if ($record) {
-    if (/^\s+Text\s+(.+)$/) {
-      $record->{title} = $1;
-      next;
-    }
-  }
-  if ($record && ($record->{type} =~ /^Patch$/)) {
-    if (/^\s+\$\$Pers\s+(.+)$/) {
-      $record->{personality} = $1;
-    }
-  }
-  if ($record && ($record->{type} =~ /^(?:Beam|Color|Focus)Palette$/)) {
-    if (/^\s+\$\$Param\s+(\d+)\s+(.+)$/) {
-      my $chan = $1;
-      if (!defined($record->{channels}->{$1})) {
-        $record->{channels}->{$chan} = {};
-      }
-      foreach my $tok (split(/\s+/, $2)) {
-        my ($param,$val) = split(/\@/, $tok);
-        $record->{channels}->{$chan}->{$param} = $val;
-        $record->{parameters}->{$param} = 1;
-      }
-    }
-    next;
-  }
-  if ($record && $record->{type} eq "Group") {
-    if (/^\s+\$\$ChanList\s+(.+)$/) {
-      foreach my $chan (split(/\s+/,$1)) {
-        $record->{channels}->{$chan} = 1;
-      }
-    }
-    next;
-  }
-}
+my $file = shift;
+my $p = new ParseShowFile();
+my $data = $p->parse_file($file);
 
 open(DMP, ">dump.pm") or die "dump.pm $@ $!";
 print DMP Data::Dumper->Dump([\$data]),"\n";
