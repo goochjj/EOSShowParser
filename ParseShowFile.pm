@@ -283,7 +283,29 @@ sub generate_page {
       my $line = "";
       $line .= "<td>".$pers->{model}."</td>";
       $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
-      $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
+      foreach my $paramidx (@{$rec->{parameters}}) {
+        my $val = $rec->{channels}->{$chan}->{$paramidx};
+        my $perschan = $pers->{params}->{$paramidx};
+        my $size = $perschan->{size};
+        my $s="";
+        if ($size==1) {
+	  $val = uc(unpack("H*", pack("C*", $val%256)));
+	  if ($self->{data}->{ParamNameToType}->{Red} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #".$val."0000;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Green} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #00".$val."00;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Blue} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #0000".$val.";'";
+          }
+          $val = "0x".$val;
+        } elsif ($size==2) {
+	  $val = uc(unpack("H*", pack("C*", $val/256, $val%256)));
+          $val = "0x".$val;
+	} else { 
+	  $val = "";
+        }
+        $line .= "<td".$s.">".$val."</td>";
+      }
       $chans{$chan} = $line;
     }
     my $output = consolidate_lines(\%chans);
@@ -307,7 +329,29 @@ sub generate_page {
       my $line = "";
       $line .= "<td>".$pers->{model}."</td>";
       $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>";
-      $line .= join("", map { "<td>".$rec->{channels}->{$chan}->{$_}."</td>" } @{$rec->{parameters}});
+      foreach my $paramidx (@{$rec->{parameters}}) {
+        my $val = $rec->{channels}->{$chan}->{$paramidx};
+        my $perschan = $pers->{params}->{$paramidx};
+        my $size = $perschan->{size};
+        my $s="";
+        if ($size==1) {
+	  $val = uc(unpack("H*", pack("C*", $val%256)));
+	  if ($self->{data}->{ParamNameToType}->{Red} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #".$val."0000;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Green} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #00".$val."00;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Blue} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #0000".$val.";'";
+          }
+          $val = "0x".$val;
+        } elsif ($size==2) {
+	  $val = uc(unpack("H*", pack("C*", $val/256, $val%256)));
+          $val = "0x".$val;
+	} else { 
+	  $val = "";
+        }
+        $line .= "<td".$s.">".$val."</td>";
+      }
       $chans{$chan} = $line;
     }
     my $output = consolidate_lines(\%chans);
@@ -319,10 +363,10 @@ sub generate_page {
   $q->print("<a name='patch'/>$anchors");
   $q->print("<h2>Patch List</h2><br/>");
   $q->print("<table>\n");
-  $q->print("  <tr><th>Channel</th><th>Type</th><th>Address</th></tr>\n");
+  $q->print("  <tr><th>Channel</th><th>Type</th><th>Address</th><th>Address Hex</th></tr>\n");
   foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Patch}}) {
     my $rec = $self->{data}->{Patch}->{$key};
-    $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{index}, $rec->{personality}, $rec->{dmx}))."</tr>\n");
+    $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{index}, $rec->{personality}, $rec->{dmx}, "0x".uc(unpack("H*", pack("C*", $rec->{dmx}/256, $rec->{dmx}%256)))))."</tr>\n");
   }
   $q->print( "</table>\n");
 }
