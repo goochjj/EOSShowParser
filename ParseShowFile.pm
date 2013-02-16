@@ -28,6 +28,7 @@ sub reset {
     BeamPalette => {},
     Patch => {},
     Group => {},
+    Sub => {},
     Preset => {},
     ChannelToGroups => {}
   };
@@ -37,7 +38,7 @@ sub closerecord {
   my $self = shift;
   if ($self->{record}) {
     if ($self->{record}->{type}) {
-      if ($self->{record}->{type} =~ /^(?:(?:Color|Beam|Focus)Palette|Preset)$/) {
+      if ($self->{record}->{type} =~ /^(?:(?:Color|Beam|Focus)Palette|Preset|Sub)$/) {
         $self->{record}->{parameters} = [ sort { $a <=> $b } keys %{$self->{record}->{parameters}} ];
       }
       if ($self->{record}->{type} eq "Group") {
@@ -75,6 +76,11 @@ sub parse_file {
     if (/^Group\s+(\d+)/) {
       $self->closerecord();
       $self->{record} = { index => $1, type => "Preset", title=>$1, parameters => {}, channels => {} };
+      next;
+    }
+    if (/^Sub\s+(\d+)/) {
+      $self->closerecord();
+      $self->{record} = { index => $1, type => "Sub", title=>$1, parameters => {}, channels => {}, effectSub => 0 };
       next;
     }
     if (/^\$Group\s+(\d+)/) {
@@ -115,6 +121,13 @@ sub parse_file {
     if ($self->{record} && ($self->{record}->{type} =~ /^Patch$/)) {
       if (/^\s+\$\$Pers\s+(.+)$/) {
         $self->{record}->{personality} = $1;
+	next;
+      }
+    }
+    if ($self->{record} && ($self->{record}->{type} =~ /^Sub$/)) {
+      if (/^\s+\$\$EffectSub\s*$/) {
+        $self->{record}->{effectSub} = 1;
+	next;
       }
     }
     if ($self->{record} && ($self->{record}->{type} =~ /^Personality$/)) {
@@ -127,7 +140,7 @@ sub parse_file {
         next;
       }
     }
-    if ($self->{record} && ($self->{record}->{type} =~ /^(?:(?:Beam|Color|Focus)Palette|Preset)$/)) {
+    if ($self->{record} && ($self->{record}->{type} =~ /^(?:(?:Beam|Color|Focus)Palette|Preset|Sub)$/)) {
       if (/^\s+\$\$Param\s+(\d+)\s+(.+)$/) {
         my $chan = $1;
         if (!defined($self->{record}->{channels}->{$1})) {
@@ -249,6 +262,7 @@ sub generate_page {
   $anchors .= "&nbsp;<a href='\#colorpalette'>Color Palettes</a>";
   $anchors .= "&nbsp;<a href='\#focuspalette'>Focus Palettes</a>";
   $anchors .= "&nbsp;<a href='\#preset'>Presets</a>";
+  $anchors .= "&nbsp;<a href='\#submaster'>Submasters</a>";
   $anchors .= "&nbsp;<a href='\#groups'>Groups</a>";
   $anchors .= "&nbsp;<a href='\#patch'>Patch List</a>";
   $anchors .= "<br/><br/>\n";
@@ -438,6 +452,64 @@ sub generate_page {
   foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Preset}}) {
     my $rec = $self->{data}->{Preset}->{$key};
     $q->print("<h2>Preset ".$rec->{index}.": ".$rec->{title}."</h2>\n");
+    $q->print("<table>\n");
+    $q->print("  <tr><th>Channel(s)</th><th>Fixture</th>");
+    if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
+    $q->print(join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
+    my %chans;
+    foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my $patch = $self->{data}->{Patch}->{$chan};
+      my $persidx = $patch->{personalityidx};
+      my $pers = $self->{data}->{Personality}->{$persidx};
+      my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
+      my $line = "";
+      $line .= "<td>".$pers->{model}."</td>";
+      if ($self->{usegroups}) { $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>"; }
+      foreach my $paramidx (@{$rec->{parameters}}) {
+        my $val = $rec->{channels}->{$chan}->{$paramidx};
+        my $perschan = $pers->{params}->{$paramidx};
+        my $size = $perschan->{size};
+        my $s="";
+	if ($val =~ /^(CP)(\d+)$/) {
+	   my $pal = $self->{data}->{ColorPalette}->{$2};
+	   if ($pal) { $val .= " [".$pal->{title}."]"; }
+	} elsif ($val =~ /^FP(\d+)$/) {
+	   my $pal = $self->{data}->{FocusPalette}->{$2};
+	   if ($pal) { $val .= " [".$pal->{title}."]"; }
+	} elsif ($val =~ /^BP(\d+)$/) {
+	   my $pal = $self->{data}->{BeamPalette}->{$2};
+	   if ($pal) { $val .= " [".$pal->{title}."]"; }
+	} elsif ($val =~ /^([A-Za-z]+)(\d+)$/) {
+        } elsif ($size==1) {
+	  $val = uc(unpack("H*", pack("C*", $val%256)));
+	  if ($self->{data}->{ParamNameToType}->{Red} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #".$val."0000;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Green} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #00".$val."00;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Blue} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #0000".$val.";'";
+          }
+          $val = "0x".$val;
+        } elsif ($size==2) {
+	  $val = uc(unpack("H*", pack("C*", $val/256, $val%256)));
+          $val = "0x".$val;
+	} else { 
+	  $val = "";
+        }
+        $line .= "<td".$s.">".$val."</td>";
+      }
+      $chans{$chan} = $line;
+    }
+    my $output = consolidate_lines(\%chans);
+    foreach my $line (@$output) {
+      $q->print("  <tr>$line</tr>\n");
+    }
+    $q->print("</table>\n");
+  }
+  $q->print("<a name='submaster'/>$anchors");
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Sub}}) {
+    my $rec = $self->{data}->{Sub}->{$key};
+    $q->print("<h2>Submaster ".$rec->{index}.": ".$rec->{title}.($rec->{effectSub}?" EFFECTSUB":"")."</h2>\n");
     $q->print("<table>\n");
     $q->print("  <tr><th>Channel(s)</th><th>Fixture</th>");
     if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
