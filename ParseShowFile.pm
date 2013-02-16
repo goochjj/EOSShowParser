@@ -47,6 +47,14 @@ sub closerecord {
           $self->{data}->{ChannelToGroups}->{$chan}->{$self->{record}->{index}} = 1; 
         }
       }
+      if ($self->{record}->{type} eq "Personality") {
+        my $numaddr = 0;
+	foreach my $c (keys %{$self->{record}->{params}}) {
+	    $numaddr += 0+$self->{record}->{params}->{$c}->{size};
+	}
+	$self->{record}->{numaddr}=$numaddr;
+	$self->{data}->{Personality}->{$self->{record}->{model}} = $self->{record};
+      }
       $self->{data}->{$self->{record}->{type}}->{$self->{record}->{index}} = $self->{record};
       $self->{record} = undef;
     }
@@ -99,7 +107,11 @@ sub parse_file {
     }
     if (/^\$Patch\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)/) {
       $self->closerecord();
-      $self->{record} = { index => $1, type => "Patch", title=>$1, personalityidx => $2, dmx => $3, mode => $4, part => $5, personality => $2 };
+      my $univ = "";
+      my $lcldmx = "";
+      if ($3>0) { $univ = (($3 >> 9)+1); $lcldmx = ($3%512); }
+
+      $self->{record} = { index => $1, type => "Patch", title=>$1, personalityidx => $2, universe => $univ, localdmx => $lcldmx, dmx => $3, mode => $4, part => $5, personality => $2 };
       next;
     }
     if (/^((?!\$)\S+)/) {
@@ -201,6 +213,8 @@ sub friendly_channels {
     for(my $i = $firstkey; $chantoks[0] == $i+2; $i+=2) { $lastkey = $i+2; shift(@chantoks); }
     if ($firstkey == $lastkey) {
       push @chanlist, $firstkey;
+    } elsif ($lastkey == $firstkey+2) {
+      push @chanlist, $firstkey, $lastkey;
     } else {
       push @chanlist, (($firstkey%2)?"odd(":"even(").$firstkey.">".$lastkey.")";
     }
@@ -239,18 +253,17 @@ sub consolidate_lines {
 } 
 
 sub get_styles {
-  "<style type='text/css'>table { width: 100%; } th { text-align: center; } td { text-align: right; } table,tr,th,td { border-collapse: collapse; border: 1px solid black; }</style>\n";
+  my $ret = <<EOM;
+    <style type='text/css'>table { width: 100%; } th { text-align: center; } td { text-align: right; } table,tr,th,td { border-collapse: collapse; border: 1px solid black; }</style>
+    <script type="text/javascript" src="prototype.js"></script>
+EOM
 }
 
 sub page_start {
   my $self = shift;
   my $q = shift || new CGI;
 
-  $q->print("<html>\n");
-  $q->print("<head><title>".$self->{data}->{Title}."</title>");
-  $q->print($self->get_styles());
-  $q->print("</head>\n");
-  $q->print("<body>\n");
+  $q->print("<html><head><title>".$self->{data}->{Title}."</title>".$self->get_styles()."</head></body>");
 }
 
 sub generate_page {
@@ -265,6 +278,9 @@ sub generate_page {
   $anchors .= "&nbsp;<a href='\#submaster'>Submasters</a>";
   $anchors .= "&nbsp;<a href='\#groups'>Groups</a>";
   $anchors .= "&nbsp;<a href='\#patch'>Patch List</a>";
+  $anchors .= <<EOM;
+&nbsp;<a href="javascript:\$\$('.inactive').each(function(el) { if (el.visible()) { el.hide(); } else {el.show(); } });">Toggle Inactive</a>
+EOM
   $anchors .= "<br/><br/>\n";
   $q->print("<a name='colorpalette'/>$anchors");
   foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{ColorPalette}}) {
@@ -576,12 +592,16 @@ sub generate_page {
   $q->print("<a name='patch'/>$anchors");
   $q->print("<h2>Patch List</h2><br/>");
   $q->print("<table>\n");
-  $q->print("  <tr><th>Channel</th><th>Type</th><th>Address</th><th>Address Hex</th><th>Group(s)</th></tr>\n");
+  $q->print("  <tr><th>Channel</th><th>Type</th><th>Address</th><th>Univ</th><th>lcl</th><th>Addr</th><th>AddrHex</th><th>Group(s)</th></tr>\n");
   foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Patch}}) {
     my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$key}};
     my $grptxt = join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups);
     my $rec = $self->{data}->{Patch}->{$key};
-    $q->print("  <tr>".join("", map { "<td>$_</td>" } ($rec->{index}, $rec->{personality}, $rec->{dmx}, "0x".uc(unpack("H*", pack("C*", $rec->{dmx}/256, $rec->{dmx}%256)))), $grptxt)."</tr>\n");
+    my $pers = $self->{data}->{Personality}->{$rec->{personality}};
+    my $numaddr = defined($pers)?$pers->{numaddr}:1;
+    $q->print("  <tr ".($rec->{dmx}>0?"class='active'":"class='inactive' style='display:none'").">");
+    $q->print("<td>".$rec->{index}."</td><td style='text-align:left;'>".$rec->{personality}."</td>");
+    $q->print(join("", map { "<td>$_</td>" } ( $numaddr, $rec->{universe}, $rec->{localdmx}, $rec->{dmx}, "0x".uc(unpack("H*", pack("C*", $rec->{dmx}/256, $rec->{dmx}%256)))), $grptxt)."</tr>\n");
   }
   $q->print( "</table>\n");
 }
