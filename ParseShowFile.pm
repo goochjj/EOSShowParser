@@ -115,6 +115,14 @@ sub parse_file {
       $self->{record} = { index => $1, type => "Patch", title=>$1, personalityidx => $2, universe => $univ, localdmx => $lcldmx, dmx => $3, mode => $4, part => $5, personality => $2 };
       next;
     }
+    if (/^\!/) {
+      #comment
+      next;
+    }
+    if (/^EndData/) {
+      #comment
+      next;
+    }
     if (/^((?!\$)\S+)/) {
       print $1,"\n";
       $self->closerecord();
