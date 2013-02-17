@@ -321,7 +321,16 @@ EOM
         my $perschan = $pers->{params}->{$paramidx};
         my $size = $perschan->{size};
         my $s="";
-	if ($val =~ /^(CP)(\d+)$/) {
+        #if (!defined($size) and defined($val)) {
+ 	
+	#	print "$chan\n"; 
+	#	print Data::Dumper->Dump([\$chan, \$pers, \$size, \$paramidx, $rec->{channels}->{$chan}]),"\n";
+
+	#	exit(0);
+	#}
+        if (!defined($val)) {
+	  $val="";
+	} elsif ($val =~ /^(CP)(\d+)$/) {
 	   my $pal = $self->{data}->{ColorPalette}->{$2};
 	   if ($pal) { $val .= " [".$pal->{title}."]"; }
 	} elsif ($val =~ /^FP(\d+)$/) {
@@ -331,7 +340,7 @@ EOM
 	   my $pal = $self->{data}->{BeamPalette}->{$2};
 	   if ($pal) { $val .= " [".$pal->{title}."]"; }
 	} elsif ($val =~ /^([A-Za-z]+)(\d+)$/) {
-        } elsif ($size==1) {
+        } elsif (defined($size) and $size==1) {
 	  $val = uc(unpack("H*", pack("C*", $val%256)));
 	  if ($self->{data}->{ParamNameToType}->{Red} == $paramidx) {
 	    $s = " style='font-weight: bold; color: #".$val."0000;'";
@@ -341,11 +350,11 @@ EOM
 	    $s = " style='font-weight: bold; color: #0000".$val.";'";
           }
           $val = "0x".$val;
-        } elsif ($size==2) {
+        } elsif (defined($size) and $size==2) {
 	  $val = uc(unpack("H*", pack("C*", $val/256, $val%256)));
           $val = "0x".$val;
 	} else { 
-	  $val = "";
+	  #$val = "";
         }
         $line .= "<td".$s.">".$val."</td>";
       }
