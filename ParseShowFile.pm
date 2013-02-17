@@ -67,6 +67,7 @@ sub parse_file {
   $self->reset();
   while(<$fh>) {
     chomp;
+    s/[\r\n]+$//g;
     if (/^\$\$Title\s+(.+)/) {
       $self->{data}->{Title}= $1;
       next;
