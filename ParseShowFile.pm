@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use CGI;
+use Imager::Color;
 use strict;
 
 package ParseShowFile;
@@ -275,6 +276,111 @@ sub page_start {
   $q->print("<html><head><title>".$self->{data}->{Title}."</title>".$self->get_styles()."</head></body>");
 }
 
+sub palette_statements {
+  my $self = shift;
+  my $q = shift;
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{ColorPalette}}) {
+    my $rec = $self->{data}->{ColorPalette}->{$key};
+    $q->print("#Color Palette ".$rec->{index}.": ".$rec->{title}."\n");
+    foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my $patch = $self->{data}->{Patch}->{$chan};
+      my $persidx = $patch->{personalityidx};
+      my $pers = $self->{data}->{Personality}->{$persidx};
+      my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
+      my $rgb = join(",", map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue') ));
+      my @hsb = map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Hue','Saturation','Brightness') );
+      my $colval = "&nbsp;";
+      my $colstyle = "";
+      my $colstyle2 = "";
+      my $colval2 = "&nbsp;";
+      my $sel = $rec->{channels}->{$chan}->{$self->{data}->{ParamNameToType}->{Color_Select}};
+      if (@hsb and $hsb[0]>-1 and $hsb[1]>-1 and $hsb[2]>-1) {
+        my $c = Imager::Color->new(hsv => \@hsb);
+        my @tok = $c->rgba();
+        $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
+      }
+      if ($rgb) { $colstyle = "background-color: rgb($rgb);"; }
+      if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); }
+      my $agg = "";
+      foreach my $paramidx (@{$rec->{parameters}}) {
+        my $val = $rec->{channels}->{$chan}->{$paramidx};
+        my $perschan = $pers->{params}->{$paramidx};
+        my $size = $perschan->{size};
+        my $s="";
+        #if (!defined($size) and defined($val)) {
+ 	
+	#	print "$chan\n"; 
+	#	print Data::Dumper->Dump([\$chan, \$pers, \$size, \$paramidx, $rec->{channels}->{$chan}]),"\n";
+
+	#	exit(0);
+	#}
+	if (defined($val) && length($val)) { $agg .= "Chan $chan ".$self->{data}->{ParamType}->{$paramidx}." $val\n"; }
+        if (!defined($val)) {
+	  $val="";
+	} elsif ($val =~ /^(CP)(\d+)$/) {
+	   my $pal = $self->{data}->{ColorPalette}->{$2};
+	   if ($pal) { $val .= " [".$pal->{title}."]"; }
+	} elsif ($val =~ /^FP(\d+)$/) {
+	   my $pal = $self->{data}->{FocusPalette}->{$2};
+	   if ($pal) { $val .= " [".$pal->{title}."]"; }
+	} elsif ($val =~ /^BP(\d+)$/) {
+	   my $pal = $self->{data}->{BeamPalette}->{$2};
+	   if ($pal) { $val .= " [".$pal->{title}."]"; }
+	} elsif ($val =~ /^([A-Za-z]+)(\d+)$/) {
+        } elsif (defined($size) and $size==1) {
+	  $val = uc(unpack("H*", pack("C*", $val%256)));
+	  if ($self->{data}->{ParamNameToType}->{Red} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #".$val."0000;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Green} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #00".$val."00;'";
+	  } elsif ($self->{data}->{ParamNameToType}->{Blue} == $paramidx) {
+	    $s = " style='font-weight: bold; color: #0000".$val.";'";
+          }
+          $val = "0x".$val;
+        } elsif (defined($size) and $size==2) {
+	  $val = uc(unpack("H*", pack("C*", $val/256, $val%256)));
+          $val = "0x".$val;
+	} else { 
+	  #$val = "";
+        }
+      }
+      $q->print($agg);
+    }
+  }
+
+  foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{BeamPalette}}) {
+    my $rec = $self->{data}->{BeamPalette}->{$key};
+    $q->print("#Beam Palette ".$rec->{index}.": ".$rec->{title}."\n");
+    $q->print("Beam_Palette ".$rec->{index}."\n");
+    $q->print("Label ".$rec->{title}."\n");
+    foreach my $chan (sort { $a <=> $b } keys %{$rec->{channels}}) {
+      my $patch = $self->{data}->{Patch}->{$chan};
+      my $persidx = $patch->{personalityidx};
+      my $pers = $self->{data}->{Personality}->{$persidx};
+      my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
+      $q->print("Chan ".$chan."\n");
+      my $agg = "";
+      foreach my $paramidx (@{$rec->{parameters}}) {
+        my $val = $rec->{channels}->{$chan}->{$paramidx};
+        my $perschan = $pers->{params}->{$paramidx};
+        my $size = $perschan->{size};
+        my $s="";
+        #if (!defined($size) and defined($val)) {
+ 	
+	#	print "$chan\n"; 
+	#	print Data::Dumper->Dump([\$chan, \$pers, \$size, \$paramidx, $rec->{channels}->{$chan}]),"\n";
+
+	#	exit(0);
+	#}
+	if (defined($val) && length($val)) { $agg .= "Chan $chan ".$self->{data}->{ParamType}->{$paramidx}." $val\n"; }
+      }
+      $q->print($agg);
+      $q->print("\n\n");
+    }
+  }
+
+}
+
 sub generate_page {
   my $self = shift;
   my $q = shift || new CGI;
@@ -296,7 +402,7 @@ EOM
     my $rec = $self->{data}->{ColorPalette}->{$key};
     $q->print("<h2>Color Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>&nbsp;</th><th>Channel(s)</th><th>Fixture</th>");
+    $q->print("  <tr><th>RGB</th><th>HSB</th><th>Channel(s)</th><th>Fixture</th>");
     if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
     $q->print(join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
@@ -306,13 +412,22 @@ EOM
       my $pers = $self->{data}->{Personality}->{$persidx};
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
       my $rgb = join(",", map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue') ));
+      my @hsb = map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Hue','Saturation','Brightness') );
       my $colval = "&nbsp;";
       my $colstyle = "";
+      my $colstyle2 = "";
+      my $colval2 = "&nbsp;";
       my $sel = $rec->{channels}->{$chan}->{$self->{data}->{ParamNameToType}->{Color_Select}};
+      if (@hsb and $hsb[0]>-1 and $hsb[1]>-1 and $hsb[2]>-1) {
+        my $c = Imager::Color->new(hsv => \@hsb);
+        my @tok = $c->rgba();
+        $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
+      }
       if ($rgb) { $colstyle = "background-color: rgb($rgb);"; }
       if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); }
       my $line = "";
       $line .= "<td style='width:30px; $colstyle'>$colval</td>";
+      $line .= "<td style='width:30px; $colstyle2'>$colval2</td>";
       $line .= "<td>\@CHAN\@</td>";
       $line .= "<td>".$pers->{model}."</td>";
       if ($self->{usegroups}) { $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>"; }
@@ -630,4 +745,5 @@ sub page_end {
 
   $q->print( "</body></html>\n");
 }
+
 1;
