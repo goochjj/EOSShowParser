@@ -5,6 +5,7 @@ use Imager::Color;
 use strict;
 
 package ParseShowFile;
+use POSIX qw(ctime);
 
 sub new {
   my $class = shift;
@@ -273,7 +274,7 @@ sub page_start {
   my $self = shift;
   my $q = shift || new CGI;
 
-  $q->print("<html><head><title>".$self->{data}->{Title}."</title>".$self->get_styles()."</head></body>");
+  $q->print("<html><head><title>".$self->{data}->{Title}."</title>".$self->get_styles()."</head><body>");
 }
 
 sub palette_statements {
@@ -396,7 +397,7 @@ sub generate_page {
   $anchors .= <<EOM;
 &nbsp;<a href="javascript:\$\$('.inactive').each(function(el) { if (el.visible()) { el.hide(); } else {el.show(); } });">Toggle Inactive</a>
 EOM
-  $anchors .= "<br/><br/>\n";
+  $anchors .= "<br/>".ctime(time())."<br/><br/>\n";
   $q->print("<a name='colorpalette'/>$anchors");
   foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{ColorPalette}}) {
     my $rec = $self->{data}->{ColorPalette}->{$key};
