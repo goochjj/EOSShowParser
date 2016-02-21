@@ -457,6 +457,7 @@ EOM
 	   if ($pal) { $val .= " [".$pal->{title}."]"; }
 	} elsif ($val =~ /^([A-Za-z]+)(\d+)$/) {
         } elsif (defined($size) and $size==1) {
+	  my $pct = $val * 100 / 255;
 	  $val = uc(unpack("H*", pack("C*", $val%256)));
 	  if ($self->{data}->{ParamNameToType}->{Red} == $paramidx) {
 	    $s = " style='font-weight: bold; color: #".$val."0000;'";
@@ -465,10 +466,11 @@ EOM
 	  } elsif ($self->{data}->{ParamNameToType}->{Blue} == $paramidx) {
 	    $s = " style='font-weight: bold; color: #0000".$val.";'";
           }
-          $val = "0x".$val;
+          $val = "0x".$val."&nbsp;".sprintf("%0.2f",$pct);
         } elsif (defined($size) and $size==2) {
+	  my $pct = $val * 100 / 65535;
 	  $val = uc(unpack("H*", pack("C*", $val/256, $val%256)));
-          $val = "0x".$val;
+          $val = "0x".$val."&nbsp;".sprintf("%0.2f",$pct);
 	} else { 
 	  #$val = "";
         }
