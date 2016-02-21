@@ -288,7 +288,10 @@ sub palette_statements {
       my $persidx = $patch->{personalityidx};
       my $pers = $self->{data}->{Personality}->{$persidx};
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
-      my $rgb = join(",", map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue') ));
+      my $rgb = join(",", 
+	map { $pers->{params}->{$_}->{size}==2?round($rec->{channels}->{$chan}->{$_}*255/65535):$rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue'))
+      );
+      my @otherclr = grep { $_ } (map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red_Orange','Amber','Indigo') ));
       my @hsb = map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Hue','Saturation','Brightness') );
       my $colval = "&nbsp;";
       my $colstyle = "";
@@ -300,7 +303,7 @@ sub palette_statements {
         my @tok = $c->rgba();
         $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
       }
-      if ($rgb) { $colstyle = "background-color: rgb($rgb);"; }
+      if ($rgb && !@otherclr) { $colstyle = "background-color: rgb($rgb);"; }
       if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); }
       my $agg = "";
       foreach my $paramidx (@{$rec->{parameters}}) {
@@ -412,7 +415,10 @@ EOM
       my $persidx = $patch->{personalityidx};
       my $pers = $self->{data}->{Personality}->{$persidx};
       my @groups = sort { $a <=> $b } keys %{$self->{data}->{ChannelToGroups}->{$chan}};
-      my $rgb = join(",", map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue') ));
+      my $rgb = join(",", 
+	map { $pers->{params}->{$_}->{size}==2?round($rec->{channels}->{$chan}->{$_}*255/65535):$rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue'))
+      );
+      my @otherclr = grep { $_ } (map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red_Orange','Amber','Indigo') ));
       my @hsb = map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Hue','Saturation','Brightness') );
       my $colval = "&nbsp;";
       my $colstyle = "";
@@ -424,8 +430,8 @@ EOM
         my @tok = $c->rgba();
         $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
       }
-      if ($rgb) { $colstyle = "background-color: rgb($rgb);"; }
-      if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); }
+      if ($rgb &&  !@otherclr) { $colstyle = "background-color: rgb($rgb);"; }
+      if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); $colstyle2=""; }
       my $line = "";
       $line .= "<td style='width:30px; $colstyle'>$colval</td>";
       $line .= "<td style='width:30px; $colstyle2'>$colval2</td>";
@@ -747,6 +753,10 @@ sub page_end {
   my $q = shift || new CGI;
 
   $q->print( "</body></html>\n");
+}
+
+sub round {
+  $_[0] > 0 ? int($_[0] + .5) : -int(-$_[0] + .5)
 }
 
 1;
