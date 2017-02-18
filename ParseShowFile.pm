@@ -171,6 +171,7 @@ sub parse_file {
         }
         foreach my $tok (split(/\s+/, $2)) {
           my ($param,$val) = split(/\@/, $tok);
+	  $val =~ s/^[ut](\d+)/$1/;
           $self->{record}->{channels}->{$chan}->{$param} = $val;
           $self->{record}->{parameters}->{$param} = 1;
         }
