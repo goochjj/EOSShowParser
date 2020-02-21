@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use CGI;
-use Imager::Color;
+#use Imager::Color;
 use strict;
 
 package ParseShowFile;
@@ -303,11 +303,11 @@ sub palette_statements {
       my $colstyle2 = "";
       my $colval2 = "&nbsp;";
       my $sel = $rec->{channels}->{$chan}->{$self->{data}->{ParamNameToType}->{Color_Select}};
-      if (@hsb and $hsb[0]>-1 and $hsb[1]>-1 and $hsb[2]>-1) {
-        my $c = Imager::Color->new(hsv => \@hsb);
-        my @tok = $c->rgba();
-        $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
-      }
+      #if (@hsb and $hsb[0]>-1 and $hsb[1]>-1 and $hsb[2]>-1) {
+      #  my $c = Imager::Color->new(hsv => \@hsb);
+      #  my @tok = $c->rgba();
+      #  $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
+      #}
       if ($rgb && !@otherclr) { $colstyle = "background-color: rgb($rgb);"; }
       if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); }
       my $agg = "";
@@ -411,7 +411,7 @@ EOM
     my $rec = $self->{data}->{ColorPalette}->{$key};
     $q->print("<h2>Color Palette ".$rec->{index}.": ".$rec->{title}."</h2>\n");
     $q->print("<table>\n");
-    $q->print("  <tr><th>RGB</th><th>HSB</th><th>Channel(s)</th><th>Fixture</th>");
+    $q->print("  <tr><th>RGB</th><th>Channel(s)</th><th>Fixture</th>");
     if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
     $q->print(join("", map { "<th>".$self->{data}->{ParamType}->{$_}."</th>" } @{$rec->{parameters}}),"</tr>\n");
     my %chans;
@@ -424,22 +424,22 @@ EOM
 	map { $pers->{params}->{$_}->{size}==2?round($rec->{channels}->{$chan}->{$_}*255/65535):$rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red','Green','Blue'))
       );
       my @otherclr = grep { $_ } (map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Red_Orange','Amber','Indigo') ));
-      my @hsb = map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Hue','Saturation','Brightness') );
+      #my @hsb = map { $rec->{channels}->{$chan}->{$_} } ( map { $self->{data}->{ParamNameToType}->{$_} } ('Hue','Saturation','Brightness') );
       my $colval = "&nbsp;";
       my $colstyle = "";
       my $colstyle2 = "";
       my $colval2 = "&nbsp;";
       my $sel = $rec->{channels}->{$chan}->{$self->{data}->{ParamNameToType}->{Color_Select}};
-      if (@hsb and $hsb[0]>-1 and $hsb[1]>-1 and $hsb[2]>-1) {
-        my $c = Imager::Color->new(hsv => \@hsb);
-        my @tok = $c->rgba();
-        $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
-      }
+      #if (@hsb and $hsb[0]>-1 and $hsb[1]>-1 and $hsb[2]>-1) {
+      #  my $c = Imager::Color->new(hsv => \@hsb);
+      #  my @tok = $c->rgba();
+      #  $colstyle2 = "background-color: rgb(".join(",", $tok[0], $tok[1], $tok[2]).");";
+      #}
       if ($rgb &&  !@otherclr) { $colstyle = "background-color: rgb($rgb);"; }
       if ($sel) { $colval = "0x".uc(unpack("H*", pack("C2", $sel/256, $sel%256))); $colstyle2=""; }
       my $line = "";
       $line .= "<td style='width:30px; $colstyle'>$colval</td>";
-      $line .= "<td style='width:30px; $colstyle2'>$colval2</td>";
+      #$line .= "<td style='width:30px; $colstyle2'>$colval2</td>";
       $line .= "<td>\@CHAN\@</td>";
       $line .= "<td>".$pers->{model}."</td>";
       if ($self->{usegroups}) { $line .= "<td>".join(",", map { $self->{data}->{Group}->{$_}->{title}."[".$_."]" } @groups)."</td>"; }
