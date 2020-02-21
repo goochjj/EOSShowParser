@@ -91,7 +91,7 @@ sub parse_file {
     }
     if (/^Sub\s+(\d+)/) {
       $self->closerecord();
-      $self->{record} = { index => $1, type => "Sub", title=>$1, parameters => {}, channels => {}, effectSub => 0 };
+      $self->{record} = { index => $1, type => "Sub", title=>$1, parameters => {}, channels => {}, inhibitSub => 0, effectSub => 0 };
       next;
     }
     if (/^\$Group\s+(\d+)/) {
@@ -150,6 +150,10 @@ sub parse_file {
     if ($self->{record} && ($self->{record}->{type} =~ /^Sub$/)) {
       if (/^\s+\$\$EffectSub\s*$/) {
         $self->{record}->{effectSub} = 1;
+	next;
+      }
+      if (/^\s+\$\$InhibSubm\s*$/) {
+        $self->{record}->{inhibitSub} = 1;
 	next;
       }
     }
@@ -668,7 +672,7 @@ EOM
   $q->print("<a name='submaster'/>$anchors");
   foreach my $key (sort { $a <=> $b } keys %{$self->{data}->{Sub}}) {
     my $rec = $self->{data}->{Sub}->{$key};
-    $q->print("<h2>Submaster ".$rec->{index}.": ".$rec->{title}.($rec->{effectSub}?" EFFECTSUB":"")."</h2>\n");
+    $q->print("<h2>Submaster ".$rec->{index}.": ".$rec->{title}.($rec->{effectSub}?" EFFECTSUB":"").($rec->{inhibitSub}?" INHIBITSUB":"")."</h2>\n");
     $q->print("<table>\n");
     $q->print("  <tr><th>Channel(s)</th><th>Fixture</th>");
     if ($self->{usegroups}) { $q->print("<th>Groups</th>"); }
